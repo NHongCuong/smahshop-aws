@@ -87,7 +87,7 @@ spec:
                     checkout scmGit(
                         branches: [[name: '*/main']],
                         userRemoteConfigs: [[
-                            url: 'https://github.com/NHongCuong/SmashShop.git',
+                            url: 'https://github.com/NHongCuong/smahshop-aws.git',
                             credentialsId: 'github-token'
                         ]]
                     )
