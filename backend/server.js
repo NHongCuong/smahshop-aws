@@ -2,7 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import connectDB from "./config/database.js"; // Import file kết nối MongoDB
+import connectDB from "./config/database.js";
 import userRoutes from "./routes/user.route.js";
 import Authrouter from "./routes/auth.route.js";
 import session from 'express-session';
@@ -23,32 +23,45 @@ import paymentRoutes from "./routes/payment.route.js";
 dotenv.config();
 
 const PORT = process.env.PORT || 5001;
-const FRONTEND_URL = process.env.FRONTEND_URL || "https://smashshop.svuit.org";
+const FRONTEND_URL = process.env.FRONTEND_URL || "";
 const FRONTEND_URL_VERCEL = process.env.FRONTEND_URL_VERCEL || "https://ie-213.vercel.app";
 connectDB();
 
 const app = express();
-app.use(express.json()); // Quan trọng để đọc dữ liệu JSON từ request
+
+// --- CẤU HÌNH QUAN TRỌNG KHI CHẠY SAU NGINX/K8S ---
+app.set("trust proxy", 1); // Cho phép Express tin tưởng các Header từ Nginx gửi sang
+
+app.use(express.json());
 app.use(cookieParser());
 
+// Cấu hình Session phù hợp cho cả HTTP và HTTPS
 app.use(
     session({
-        secret: "a9b8c7d6e5f4g3h2i1", // Khóa bí mật để mã hóa session
+        secret: "a9b8c7d6e5f4g3h2i1",
         resave: false,
-        saveUninitialized: true,
-        cookie: { secure: false }, // false nếu không dùng HTTPS
+        saveUninitialized: false, // Đổi thành false để bảo mật hơn
+        cookie: { 
+            secure: true,        // Bắt buộc true khi chạy HTTPS để trình duyệt nhận Cookie
+            sameSite: "none",    // Bắt buộc "none" nếu Frontend và Backend khác Port/Giao thức
+            maxAge: 24 * 60 * 60 * 1000 // 1 ngày
+        },
     })
 );
-// Cấu hình session
+
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Middleware
+// --- CẤU HÌNH CORS CHI TIẾT ---
 app.use(cors({
-    origin: "http://54.254.229.136:30002", // KHÔNG được dùng '*'
-    //origin: ["https://192.168.88.133:30443", "http://192.168.88.133:30002"],
+    origin: [
+        "https://54.254.229.136:30443", 
+        "http://54.254.229.136:30002",
+        "https://54.254.229.136",
+        "http://localhost:3000"
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true, // Cho phép gửi cookie/session
+    credentials: true, // Quan trọng để gửi nhận Cookie/Session
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
@@ -66,13 +79,12 @@ app.use('/api/auth', Authrouter);
 app.use('/api/v1/cart', cartRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
 app.use('/api/v1/vnpay', paymentRoutes);
+
 // Route đăng nhập Google
 app.get('/api/auth/google',
     passport.authenticate("google", { scope: ["openid", "profile", "email"] })
-
 );
 
-// Route callback từ Google
 app.get('/api/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/' }),
     (req, res) => {
@@ -80,12 +92,9 @@ app.get('/api/auth/google/callback',
     }
 );
 
-
-// Cấu hình các Routes còn lại 
 app.use('*', (req, res) => {
     res.status(404).json({ error: "not found" })
 });
-
 
 app.listen(PORT, () => console.log(`Server started at http://54.254.229.136:${PORT}`));
 
